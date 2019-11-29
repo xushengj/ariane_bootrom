@@ -9,7 +9,18 @@ int main()
     init_uart(UART_FREQUENCY, UART_BAUD);
     print_uart("Hello World!\r\n");
 
+#ifdef INITROM_BASE
+    // copy INITROM_LENGTH from INITROM_BASE to DRAM_BASE
+    uint64_t* srcPtr = (uint64_t*) INITROM_BASE;
+    uint64_t* srcEndPtr = (uint64_t*) (INITROM_BASE+INITROM_LENGTH);
+    uint64_t* destPtr = (uint64_t*)0x80000000UL;
+    while(srcPtr < srcEndPtr){
+        *destPtr++ = *srcPtr++;
+    }
+    int res = 0;
+#else
     int res = gpt_find_boot_partition((uint8_t *)0x80000000UL, 2 * 16384);
+#endif
 
     if (res == 0)
     {

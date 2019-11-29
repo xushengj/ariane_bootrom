@@ -3,3 +3,6 @@ venv
 *.o
 *.img
 *.bin
+*.sv
+./*.h
+*.dtb
