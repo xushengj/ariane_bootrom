@@ -16,6 +16,11 @@ int is_transmit_empty()
     return read_reg_u8(UART_LINE_STATUS) & 0x20;
 }
 
+int is_read_pending()
+{
+    return read_reg_u8(UART_LINE_STATUS) & 0x1;
+}
+
 void write_serial(char a)
 {
     while (is_transmit_empty() == 0) {};
@@ -44,6 +49,17 @@ void print_uart(const char *str)
         write_serial((uint8_t)*cur);
         ++cur;
     }
+}
+
+uint8_t getchar_uart()
+{
+    while(!is_read_pending()) {}
+    return read_reg_u8(UART_RBR);
+}
+
+void putchar_uart(char ch)
+{
+    write_serial(ch);
 }
 
 uint8_t bin_to_hex_table[16] = {

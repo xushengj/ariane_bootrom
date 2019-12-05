@@ -14,7 +14,7 @@ endif
 
 INCLUDES = -I./ -I./src -I$(PLATFORM)
 
-SRCS_C = src/main.c src/uart.c src/spi.c src/sd.c src/gpt.c
+SRCS_C = src/main.c src/uart.c src/spi.c src/sd.c src/gpt.c src/cdecode.c
 SRCS_ASM = startup.S
 OBJS_C = $(SRCS_C:.c=.o)
 OBJS_S = $(SRCS_ASM:.S=.o)
