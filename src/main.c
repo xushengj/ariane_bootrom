@@ -14,6 +14,10 @@ static int copy_from_rom();
 #ifdef UART_LOAD_IMAGE
 static int load_image_from_uart();
 #endif
+#ifdef FLASH_BASE
+#include "xilflash.h"
+static int init_from_flash();
+#endif
 
 int main()
 {
@@ -38,6 +42,8 @@ int main()
     int res = memory_test();
 #elif defined(INITROM_BASE)
     int res = copy_from_rom();
+#elif defined(FLASH_BASE)
+    int res = init_from_flash();
 #else
     int res = gpt_find_boot_partition((uint8_t *)0x80000000UL, 2 * 16384);
 #endif
@@ -119,7 +125,7 @@ static int copy_from_rom()
 #endif /* INITROM_BASE */
 
 #ifdef UART_LOAD_IMAGE
-#define DIGIT_CNT 16
+//#define DIGIT_CNT 16
 static int load_image_from_uart()
 {
     print_uart("image from UART:\r\n");
@@ -128,8 +134,10 @@ static int load_image_from_uart()
     uint64_t linesize = 0;
     char* destPtr = (char*)0x80000000UL;
     // progress indicator
+    /*
     uint64_t printedSizeInKB = 0;
     uint8_t size_KB_digits[DIGIT_CNT] = {0};
+    */
     while(1){
         uint64_t currentLineSize = 0;
         while(1){
@@ -146,6 +154,7 @@ static int load_image_from_uart()
             }
         }
         if (linesize > currentLineSize) break;
+        /*
         uint64_t curSizeInKB = (destPtr - (char*)0x80000000UL) >> 10;
         if (curSizeInKB > printedSizeInKB){
             uint64_t increment = curSizeInKB - printedSizeInKB;
@@ -175,8 +184,110 @@ static int load_image_from_uart()
             }
             print_uart(" KB\r");
         }
+        */
     }
-    print_uart("\r\ndone\r\n");
+    print_uart("done\r\n");
     return 0;
 }
 #endif /* UART_LOAD_IMAGE */
+
+#ifdef FLASH_BASE
+#define PROGRESS_BLOCK (512*1024)
+static int init_from_flash()
+{
+    print_uart("initialize from flash: flash_base:");
+    print_uart_addr(FLASH_BASE);
+    print_uart("\r\n");
+
+    XFlash f;
+    int res = XFlash_Initialize(&f,
+        FLASH_BASE,
+        /* BusWidth */2,
+        /* IsPlatformFlash */1);
+
+    if (res != XST_SUCCESS) {
+        print_uart("XFlash_Initialize() failed\r\n");
+        return 1;
+    }
+
+    // print flash information
+    print_uart("XFlash_Initialize() done");
+    print_uart("\r\n  Device option:");
+    print_uart_int(f.Options);
+    print_uart("\r\n  IsReady:");
+    print_uart_int(f.IsReady);
+    print_uart("\r\n  IsPlatformFlash:");
+    print_uart_int(f.IsPlatformFlash);
+    print_uart("\r\n  CommandSet:");
+    print_uart_int(f.CommandSet);
+    print_uart("\r\n  Part:");
+    print_uart("\r\n    ManufacturerID:");
+    print_uart_byte(f.Properties.PartID.ManufacturerID);
+    print_uart("\r\n    DeviceID:");
+    print_uart_int(f.Properties.PartID.DeviceID);
+    print_uart("\r\n    CommandSet:");
+    print_uart_int(f.Properties.PartID.CommandSet);
+    print_uart("\r\n  Geometry:");
+    print_uart("\r\n    BaseAddress:");
+    print_uart_int(f.Geometry.BaseAddress);
+    print_uart("\r\n    MemoryLayout:");
+    print_uart_int(f.Geometry.MemoryLayout);
+    print_uart("\r\n    DeviceSize:");
+    print_uart_int(f.Geometry.DeviceSize);
+    print_uart("\r\n    NumEraseRegions:");
+    print_uart_int(f.Geometry.NumEraseRegions);
+    print_uart("\r\n    NumBlocks:");
+    print_uart_int(f.Geometry.NumBlocks);
+    print_uart("\r\n    BootMode:");
+    print_uart_byte(f.Geometry.BootMode);
+    print_uart("\r\n");
+
+    res = XFlash_Reset(&f);
+    if (res != XST_SUCCESS) {
+        print_uart("XFlash_Reset() failed\r\n");
+        return 1;
+    }
+
+    print_uart("XFlash_Reset() done\r\n");
+
+
+    print_uart("Copying from ");
+    print_uart_int(FLASH_IMG_BASE);
+    print_uart(" in flash to RAM\r\n");
+
+	char* destPtr = (char*)0x80000000UL;
+    for(uint32_t s = 0; s < FLASH_IMG_LEN; s += PROGRESS_BLOCK){
+        res = XFlash_Read(&f, FLASH_IMG_BASE + s, PROGRESS_BLOCK, destPtr + s);
+        if (res != XST_SUCCESS){
+            print_uart("XFlash_Read() failed\r\n");
+            return 1;
+        }
+        putchar_uart('.');
+    }
+    print_uart("\r\nCopy complete, jumping to RAM\r\n");
+    return 1;
+}
+
+void * memcpy ( void * destination, const void * source, size_t num )
+{
+    if (((uint64_t)destination & 0x07) != 0
+      ||((uint64_t)source      & 0x07) != 0
+      ||(num & 0x07) != 0){
+        print_uart("memcpy(): warning: slow path (misaligned)\r\n");
+        uint8_t *srcPtr = (uint8_t*) source;
+        uint8_t *destPtr = (uint8_t*) destination;
+        while(num != 0){
+            *destPtr++ = *srcPtr++;
+            num -= 1;
+        }
+    }else{
+        uint64_t *srcPtr = (uint64_t*) source;
+        uint64_t *destPtr = (uint64_t*) destination;
+        while(num != 0){
+            *destPtr++ = *srcPtr++;
+            num -= sizeof(uint64_t);
+        }
+    }
+    return destination;
+}
+#endif /* FLASH_BASE */

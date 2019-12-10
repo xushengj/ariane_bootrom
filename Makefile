@@ -12,7 +12,11 @@ else
 	PLATFORM:=default
 endif
 
-INCLUDES = -I./ -I./src -I$(PLATFORM)
+XILFLASH_DIR=xilflash_src
+XILFLASH_INCLUDES = -I$(XILFLASH_DIR) -I$(XILFLASH_DIR)/include
+XILFLASH_A = $(XILFLASH_DIR)/libxilflash.a
+
+INCLUDES = -I./ -I./src -I$(PLATFORM) $(XILFLASH_INCLUDES)
 
 SRCS_C = src/main.c src/uart.c src/spi.c src/sd.c src/gpt.c src/cdecode.c
 SRCS_ASM = startup.S
@@ -26,9 +30,12 @@ MAIN_SV = $(MAIN:.elf=.sv)
 
 #.PHONY: clean
 
-$(MAIN): ariane.dtb $(OBJS_C) $(OBJS_S) linker.lds
-	$(CC) $(CFLAGS) $(LDFLAGS) $(INCLUDES) -Tlinker.lds $(OBJS_S) $(OBJS_C) -o $(MAIN)
+$(MAIN): ariane.dtb $(OBJS_C) $(OBJS_S) linker.lds $(XILFLASH_A)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(INCLUDES) -Tlinker.lds $(OBJS_S) $(OBJS_C) $(XILFLASH_A) -o $(MAIN)
 	@echo "LD    >= $(MAIN)"
+
+$(XILFLASH_A):
+	cd $(XILFLASH_DIR) && make
 
 %.img: %.bin
 	dd if=$< of=$@ bs=128
@@ -53,6 +60,7 @@ $(MAIN): ariane.dtb $(OBJS_C) $(OBJS_S) linker.lds
 
 clean:
 	$(RM) $(OBJS_C) $(OBJS_S) $(MAIN) $(MAIN_BIN) $(MAIN_IMG) *.dtb
+	cd $(XILFLASH_DIR) && make clean
 
 all: $(MAIN) $(MAIN_BIN) $(MAIN_IMG) $(MAIN_SV)
 	@echo "zero stage bootloader has been compiled!"
