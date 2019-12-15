@@ -70,8 +70,8 @@ void handle_trap(void)
 
 #ifdef TEST_PRINT_BASE
 
-// print 4KB per 8MB address range, 16 bytes per row
-#define PRINT_GRANULARITY 8*1024*1024
+// print 4KB per 1MB address range, 16 bytes per row
+#define PRINT_GRANULARITY 1*1024*1024
 #define PRINT_SIZE 4096
 #define PRINT_ROW_LENGTH 16
 
@@ -105,14 +105,14 @@ static int memory_test()
 static int copy_from_rom()
 {
     // copy INITROM_LENGTH from INITROM_BASE to DRAM_BASE
-    uint64_t* srcPtr = (uint64_t*) INITROM_BASE;
-    uint64_t* srcEndPtr = (uint64_t*) (INITROM_BASE+INITROM_LENGTH);
+    uint32_t* srcPtr = (uint32_t*) INITROM_BASE;
+    uint32_t* srcEndPtr = (uint32_t*) (INITROM_BASE+INITROM_LENGTH);
     print_uart("Copying from ");
     print_uart_addr(INITROM_BASE);
     print_uart(" with length ");
     print_uart_addr(INITROM_LENGTH);
     print_uart(" to main memory\r\n");
-    uint64_t* destPtr = (uint64_t*)0x80000000UL;
+    uint32_t* destPtr = (uint32_t*)0x80000000UL;
     while(srcPtr < srcEndPtr){
         *destPtr++ = *srcPtr++;
         if(((uint64_t)srcPtr - INITROM_BASE) % (512*1024) == 0){
